@@ -1,6 +1,9 @@
 #!/bin/bash
 # ============================================================
-#  Hyper Suite X - macOS installer (CEP extension)
+#  Hyper Suite X - macOS installer (CEP developer install)
+#  Adobe-documented way to install a custom / self-signed CEP
+#  extension. Do NOT double-click the .zxp: Extension Manager
+#  requires a CA-issued certificate.
 # ============================================================
 set -e
 SRC="$(cd "$(dirname "$0")/../hyper-suite-x" && pwd)"
@@ -11,19 +14,50 @@ if [ ! -f "$SRC/index.html" ]; then
   exit 1
 fi
 
-echo "Hyper Suite X v2.0.0 - installing..."
+echo ""
+echo "Hyper Suite X v2.1.0 - CEP developer install (macOS)"
 echo "  Source: $SRC"
-mkdir -p "$DEST"
-rm -rf "$DEST"/*
-cp -R "$SRC"/. "$DEST"/
-echo "  Installed to: $DEST"
-echo "[2/2] Enabling CEP developer mode (PlayerDebugMode)..."
-defaults write com.adobe.CSXS.11 PlayerDebugMode 1 2>/dev/null || true
+echo ""
+
+echo "[1/4] After Effects must be quit before installing."
+if pgrep -x "AfterFX" >/dev/null 2>&1 || pgrep -f "Adobe After Effects" >/dev/null 2>&1; then
+  echo "       After Effects is running - please quit it, then re-run this script."
+  exit 1
+fi
 echo "       OK"
+
+echo "[2/4] Removing previous install (clean slate)..."
+rm -rf "$DEST"
+echo "      OK"
+
+echo "[3/4] Copying extension to $DEST ..."
+mkdir -p "$DEST"
+cp -R "$SRC/." "$DEST/"
+echo "      OK"
+
+echo "[4/4] Enabling CEP developer mode (all supported AE versions)..."
+# AE 2022 (CSXS.10) through AE 2025 (CSXS.13). Remove later with:
+#   defaults delete com.adobe.CSXS.11 PlayerDebugMode
+for v in 10 11 12 13; do
+  defaults write "com.adobe.CSXS.$v" PlayerDebugMode 1 2>/dev/null || true
+done
+echo "      OK"
+
+# verify
+for f in index.html CSXS/manifest.xml jsx/main.js; do
+  if [ ! -f "$DEST/$f" ]; then
+    echo "[ERROR] Verify failed: $DEST/$f missing"
+    exit 1
+  fi
+done
+
 echo ""
 echo "------------------------------------------------------------"
-echo " Next steps:"
-echo "   1. Fully quit After Effects (it must be closed)."
-echo "   2. Reopen After Effects."
-echo "   3. Window  ->  Extensions  ->  Hyper Suite X"
+echo " Done. Open After Effects, then:"
+echo "   Window  ->  Extensions  ->  Hyper Suite X"
+echo ""
+echo " Note: double-clicking the .zxp won't work - it is"
+echo " self-signed, and Extension Manager requires a"
+echo " CA-issued certificate. This script is the supported"
+echo " path for custom extensions."
 echo "------------------------------------------------------------"

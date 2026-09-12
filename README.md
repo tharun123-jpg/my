@@ -26,27 +26,39 @@ automation, no manual keyframing.
 
 ## Install
 
-### Windows (recommended)
+> **Don't double-click the .zxp.** Extension Manager (and the CC "UPIA"
+> installer behind it) verifies the package with `ZXPSignLib`, which requires
+> a **CA-issued certificate chain**. This build is **self-signed**, so the
+> dialog *"HyperSuiteX_v2.1.0 was not installed"* is expected — it is an
+> Adobe policy limit, not a corrupt file. The supported install path for
+> custom extensions is the **CEP developer install** below (Adobe's own
+> documented workflow for self-signed CEP extensions).
 
-1. Close After Effects.
-2. Double-click **`dist/HyperSuiteX_v2.1.0.zxp`** (or run `install/install-windows.bat`).
-   - The installer copies the extension into
-     `%APPDATA%\Adobe\CEP\extensions\HyperSuiteX`
-     (and the legacy `Adobe\Common\CEP` location), and enables **CEP developer
-     mode** (`HKCU\Software\Adobe\CSXS.11 → PlayerDebugMode = 1`) so the panel
-     loads even though it isn't from the Extension Manager.
-3. Reopen After Effects → **Window → Extensions → Hyper Suite X**.
+### Windows
+
+1. Run **`install\install-windows.bat`** (double-click is fine — it closes
+   After Effects if it's running, wipes any previous version, copies the
+   extension to
+   `%APPDATA%\Adobe\CEP\extensions\HyperSuiteX`
+   and the legacy `Adobe\Common\CEP` location, enables **CEP developer mode**
+   for CSXS.10–13 — AE 2022 through 2025 — and verifies the copy).
+2. Reopen After Effects → **Window → Extensions → Hyper Suite X**.
 
 To remove developer mode later:
 `reg delete "HKCU\Software\Adobe\CSXS.11" /v PlayerDebugMode /f`
 
 ### macOS
 
+1. Quit After Effects.
+2. Run:
+
 ```sh
 ./install/install-macos.sh
 ```
-(installs to `~/Library/Application Support/Adobe/CEP/extensions/HyperSuiteX`
-and sets `PlayerDebugMode` for CSXS.11)
+
+   (installs to `~/Library/Application Support/Adobe/CEP/extensions/HyperSuiteX`
+   and sets `PlayerDebugMode` for CSXS.10–13)
+3. Open After Effects → **Window → Extensions → Hyper Suite X**.
 
 ### Browser preview (no After Effects)
 
@@ -155,11 +167,16 @@ and the certificate self-signature all verify.
 
 ## Troubleshooting
 
+- **Extension Manager says "… was not installed"** (double-clicking the .zxp):
+  expected — the package is self-signed and Extension Manager / UPIA require
+  a CA-issued certificate. Install with `install\install-windows.bat`
+  (Windows) or `./install/install-macos.sh` (macOS) instead. If you have a
+  commercial code-signing certificate, sign with `ZXPSignCmd` and the ZXP
+  will install via the Extension Manager.
 - **Panel not in Window → Extensions?** Make sure AE is fully closed during
-  install, and that developer mode is set (the installer does this; or check
-  `reg query HKCU\Software\Adobe\CSXS.11 /v PlayerDebugMode`). If you use a
-  different CEP version (AE 2022 = CSXS.10, AE 2024+ = CSXS.12/13), set the
-  same value under that key.
+  install, and that developer mode is set (the installer does this for
+  CSXS.10–13; or check
+  `reg query HKCU\Software\Adobe\CSXS.11 /v PlayerDebugMode`).
 - **"No AI key — demo mode"**: go to Profile and add an API key, or ignore it
   — everything else works without AI.
 - **Credits hit 0**: the meter is local (plan B, 222). Reset it from the

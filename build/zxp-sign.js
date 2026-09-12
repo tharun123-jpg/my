@@ -185,29 +185,35 @@ function walk(dir, base, out) {
 }
 const files = walk(SRC, SRC, []).sort((a, b) => a.name.localeCompare(b.name));
 
-const manifest =
+const sha256b64 = (b) => crypto.createHash("sha256").update(b).digest("base64");
+
+/* JAR-standard MANIFEST.MF (mirrors ZXPSignCmd output):
+   main section, then one section per entry (Name + digest),
+   separated by blank lines, ending with a blank line. */
+let manifest =
   "Manifest-Version: 1.0\r\n" +
-  "Extension: Hyper Suite X\r\n" +
-  "ManifestVersion: 2.0\r\n" +
-  "ID: com.hyper.suite-x\r\n" +
-  "Version: 2.1.0\r\n" +
-  "Priority: 500\r\n" +
-  "StartupAsLateStartup: false\r\n" +
-  "Icon:\r\n" +
-  "UseSharedRuntimePathInWindows: true\r\n" +
+  "Created-By: Hyper Suite X builder (Node)\r\n" +
   "\r\n";
+for (const f of files) {
+  manifest += "Name: " + f.name + "\r\n" +
+    "SHA-256-Digest: " + sha256b64(f.data) + "\r\n\r\n";
+}
 
 const entries = [...files, { name: "META-INF/MANIFEST.MF", data: Buffer.from(manifest, "utf8") }];
 
-/* CODE.SF */
-const sfMain = "Signature-Version: 1.0\r\n" +
-  "SHA-256-Digest-Manifest: " + crypto.createHash("sha256").update(entries[entries.length - 1].data).digest("base64") + "\r\n\r\n";
+/* CODE.SF — same per-entry sections + digest of the manifest */
 let sfBody = "";
 for (let i = 0; i < entries.length; i++) {
   sfBody += "Name: " + entries[i].name + "\r\n" +
-    "SHA-256-Digest: " + crypto.createHash("sha256").update(entries[i].data).digest("base64") + "\r\n\r\n";
+    "SHA-256-Digest: " + sha256b64(entries[i].data) + "\r\n\r\n";
 }
-const codeSf = Buffer.from(sfMain + sfBody, "utf8");
+const codeSf = Buffer.from(
+  "Signature-Version: 1.0\r\n" +
+  "SHA-256-Digest-Manifest: " + sha256b64(entries[entries.length - 1].data) + "\r\n" +
+  "Created-By: Hyper Suite X builder (Node)\r\n" +
+  "\r\n" + sfBody,
+  "utf8"
+);
 entries.push({ name: "META-INF/CODE.SF", data: codeSf });
 
 /* CERT.RSA */
