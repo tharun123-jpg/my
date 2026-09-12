@@ -135,7 +135,7 @@ function makeZip(entries) {
     const lh = Buffer.alloc(30);
     lh.writeUInt32LE(0x04034b50, 0);
     lh.writeUInt16LE(20, 4);
-    lh.writeUInt16LE(0x0800, 6);
+    lh.writeUInt16LE(0, 6);
     lh.writeUInt16LE(0, 8);
     lh.writeUInt16LE(dosTime, 10);
     lh.writeUInt16LE(dosDate, 12);
@@ -149,7 +149,7 @@ function makeZip(entries) {
     ch.writeUInt32LE(0x02014b50, 0);
     ch.writeUInt16LE(20, 4);
     ch.writeUInt16LE(20, 6);
-    ch.writeUInt16LE(0x0800, 8);
+    ch.writeUInt16LE(0, 8);
     ch.writeUInt16LE(0, 10);
     ch.writeUInt16LE(dosTime, 12);
     ch.writeUInt16LE(dosDate, 14);
