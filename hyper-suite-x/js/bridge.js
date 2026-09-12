@@ -88,12 +88,15 @@
     return false;
   }
 
-  // folder that contains index.html
+  // folder that contains index.html, as a file:// URL that
+  // ExtendScript's File() can open. Keep it percent-encoded —
+  // decoding would break paths with spaces / non-ASCII usernames.
   function extensionFolder() {
     try {
-      var p = decodeURIComponent(window.location.href);
+      var p = String(window.location.href);
       var i = p.lastIndexOf("index.html");
       if (i > 0) p = p.substring(0, i);
+      p = p.replace(/ /g, "%20").replace(/&/g, "%26").replace(/#/g, "%23").replace(/\?/g, "%3F");
       if (p.charAt(p.length - 1) === "/") p = p.substring(0, p.length - 1);
       return p;
     } catch (e) { return ""; }

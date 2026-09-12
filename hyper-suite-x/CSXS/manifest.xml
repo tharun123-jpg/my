@@ -22,7 +22,4 @@
     <DesignModeSettings>
         <OpenRuntimePathInBrowser>true</OpenRuntimePathInBrowser>
     </DesignModeSettings>
-    <Requirements>
-        <VersionMajor>11</VersionMajor>
-    </Requirements>
 </Extension>

@@ -36,9 +36,9 @@ cp -R "$SRC/." "$DEST/"
 echo "      OK"
 
 echo "[4/4] Enabling CEP developer mode (all supported AE versions)..."
-# AE 2022 (CSXS.10) through AE 2025 (CSXS.13). Remove later with:
+# AE 2020 (CSXS.8) through AE 2025+ (CSXS.14). Remove later with:
 #   defaults delete com.adobe.CSXS.11 PlayerDebugMode
-for v in 10 11 12 13; do
+for v in 8 9 10 11 12 13 14; do
   defaults write "com.adobe.CSXS.$v" PlayerDebugMode 1 2>/dev/null || true
 done
 echo "      OK"

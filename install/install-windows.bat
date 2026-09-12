@@ -44,10 +44,10 @@ echo       OK
 
 echo [4/5] Enabling CEP developer mode (all supported AE versions)...
 rem  Lets the panel load even though it is not installed via the
-rem  Extension Manager. Covers AE 2022 (CSXS.10) through AE 2025
-rem  (CSXS.13). Remove later with:
+rem  Extension Manager. Covers CSXS.8 through CSXS.14 (AE 2020 -
+rem  AE 2025+). Remove later with:
 rem    reg delete "HKCU\Software\Adobe\CSXS.11" /v PlayerDebugMode /f
-for %%V in (10 11 12 13) do reg add "HKCU\Software\Adobe\CSXS.%%V" /v PlayerDebugMode /t REG_DWORD /d 1 /f >NUL 2>NUL
+for %%V in (8 9 10 11 12 13 14) do reg add "HKCU\Software\Adobe\CSXS.%%V" /v PlayerDebugMode /t REG_DWORD /d 1 /f >NUL 2>NUL
 echo       OK
 
 echo [5/5] Verifying install...
