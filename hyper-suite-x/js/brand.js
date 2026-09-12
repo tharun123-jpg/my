@@ -2,7 +2,7 @@
 window.HSX_BRAND = {
   name: "Hyper Suite",
   accent: "X",
-  version: "2.0.0",
+  version: "2.1.0",
   extensionId: "com.hyper.suite-x",
   // layer/effect name prefix used inside After Effects
   layerPrefix: "[HSX]",

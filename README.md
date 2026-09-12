@@ -29,7 +29,7 @@ automation, no manual keyframing.
 ### Windows (recommended)
 
 1. Close After Effects.
-2. Double-click **`dist/HyperSuiteX_v2.0.0.zxp`** (or run `install/install-windows.bat`).
+2. Double-click **`dist/HyperSuiteX_v2.1.0.zxp`** (or run `install/install-windows.bat`).
    - The installer copies the extension into
      `%APPDATA%\Adobe\CEP\extensions\HyperSuiteX`
      (and the legacy `Adobe\Common\CEP` location), and enables **CEP developer
@@ -55,17 +55,48 @@ The panel runs standalone in a browser using a built-in **mock After Effects**
 explore the whole UI and try the presets against a simulated comp. A
 "MOCK" badge shows when you're in browser mode.
 
+## What's new in 2.1
+
+- **Ctrl+K command palette** — fuzzy-jump to any action (presets, transitions,
+  looks, scans, snapshots, motion, navigation). Subsequence matching, ↑/↓ + Enter.
+- **Snapshots (undo points)** — Project tab: save the state of your selection or
+  the whole comp (keyframes for position/scale/rotation/opacity + layer timing),
+  restore it any time this session. 12-slot session ring.
+- **Batch queue** — queue actions (e.g. "queue all transitions", "full polish")
+  and watch per-item status in the **⚙ header chip**; an activity drawer
+  (header pulse button) also shows a live operation log.
+- **Project health scan** — detects duplicate layer names, invisible layers,
+  disabled layers, effect-heavy layers, oversized comps and solids; one-click
+  "fix quick wins".
+- **Playhead edit inspector** — Transitions tab shows the two clips bracketing
+  the playhead (names, in/out, duration) with an edit-state badge.
+- **Motion pack** — Slow-mo beat (time-remap ramp), Whip pan (position + motion
+  blur), Stutter, Overshoot — on the selection, single click.
+- **Library multi-select** — Ctrl/Shift-click several presets, then **⚡ Queue N
+  selected** for a batch apply.
+- **Settings export/import** — Profile tab: export or import credits, plan,
+  favorites and AI settings as JSON.
+- **Chat error cards** — failed AI commands show an inline ⚠ card with a
+  **↻ Retry** button; chat also drives snapshots, scans and the motion pack.
+- **Performance** — debounced library search, lazy canvas thumbnails
+  (IntersectionObserver), rAF-throttled graph dragging, CSS containment on card
+  grids, `prefers-reduced-motion` support.
+- **Stability** — unified `B.hsx()` call wrapper (structured errors, one
+  toast path), JSX guards (`requireComp`/`requireSel`/`clampNum`), clean
+  one-line error messages from ExtendScript, browser mock parity for every
+  new command.
+
 ## What's inside
 
 | Tab | What it does |
 |---|---|
-| **HyperAI Chat** | Credits meter (222 on plan B), model picker (Fast / Pro / custom), command chat: "shake flash this edit", "split at cuts", "render h264"… — 9 whitelisted actions executed in AE, with free-text fallback. Works against **any OpenAI-compatible endpoint** (OpenAI, OpenRouter, Groq, local). Without a key it runs in demo mode. |
-| **Library** | 73 presets across 9 categories (CCS 13, MASKS 7, SHAKES 29, SLIDES 16, TEXT 108 slots, TRANSITIONS 58 slots, TWIXTERS 7, ZOOMS 44 slots, OTHER 72 slots) + sound effects (real WAV, synth-generated) + textures. Toggles: *stretch keyframes to layer duration*, *apply at layer start*, *apply to selected layers / whole comp*. |
-| **Transitions** | One-click transitions **at the playhead**: Shake flash · Zoom into edit · Smooth parallel · Warp flash · Hyperlapse · Glitch + shake. Each applies a matched-pair (out/in) effect stack to the two clips at the edit, with lock + "Complete" badges. |
+| **HyperAI Chat** | Credits meter (222 on plan B), model picker (Fast / Pro / custom), command chat: "shake flash this edit", "split at cuts", "render h264"… — 13 whitelisted actions executed in AE, with free-text fallback. Works against **any OpenAI-compatible endpoint** (OpenAI, OpenRouter, Groq, local). Without a key it runs in demo mode. Failed actions get an inline error card with retry. |
+| **Library** | 73 presets across 9 categories (CCS 13, MASKS 7, SHAKES 29, SLIDES 16, TEXT 108 slots, TRANSITIONS 58 slots, TWIXTERS 7, ZOOMS 44 slots, OTHER 72 slots) + sound effects (real WAV, synth-generated) + textures. Toggles: *stretch keyframes to layer duration*, *apply at layer start*, *apply to selected layers / whole comp*. **Ctrl/Shift-click to multi-select, then batch-queue them.** |
+| **Transitions** | One-click transitions **at the playhead**: Shake flash · Zoom into edit · Smooth parallel · Warp flash · Hyperlapse · Glitch + shake. Each applies a matched-pair (out/in) effect stack to the two clips at the edit, with lock + "Complete" badges. Plus a **playhead edit inspector** (the two clips at your cut) and the **motion pack** (slow-mo beat / whip / stutter / overshoot). |
 | **General** | Arrange (align/distribute selected layers), Audio (duck, normalize, fade), Color (curves/LUT-style ramps, match), Cuts (split at cuts — full on paid plan, free tier limited). |
 | **Easing / Graph** | Live bezier editor with draggable handles, overshoot toggle, 12 easing families (Linear → Anticipate, 27 variants) — read selected keyframes, apply ease, or replace positions with sampled ease values. |
 | **Effects** | Master toggle (Whole comp / Selected layers, All effects), per-effect toggles for the FX stack the panel manages. |
-| **Project** | Render & convert to **H.264 .mp4** via AE's own render queue, save frame as PNG, resize & center selected layers, reframe comp to size, tidy project bin, purge memory & disk cache. |
+| **Project** | Render & convert to **H.264 .mp4** via AE's own render queue, save frame as PNG, resize & center selected layers, reframe comp to size, tidy project bin, purge memory & disk cache. **Snapshots** (save / restore / delete undo points), **health scan** with one-click fixes, and a **full-polish** batch. |
 
 Every action is real JSX: `jsx/transitions.js`, `jsx/library.js`, `jsx/graph.js`,
 `jsx/fx.js`, `jsx/general.js`, `jsx/project.js`, `jsx/audio.js` (bridge: `jsx/main.js`).
@@ -81,9 +112,9 @@ POST {baseUrl}/chat/completions
 { "model": "...", "messages": [...], "stream": true }
 ```
 
-Only 9 tool commands can be triggered from chat (the whitelist), each costs
-credits (AI 4 / transition 2 / render 10 / other 1). No key = demo mode with
-canned responses.
+Only 13 tool commands can be triggered from chat (the whitelist), each costs
+credits (AI 4 / transition 2 / motion 2 / render 10 / other 1). No key = demo
+mode with canned responses.
 
 ## Rebuilding the .zxp
 
@@ -98,7 +129,7 @@ build\build-zxp.bat     :: Windows
 ./build/build-zxp.sh    :: macOS / Linux
 ```
 
-Output: `dist/HyperSuiteX_v2.0.0.zxp`.
+Output: `dist/HyperSuiteX_v2.1.0.zxp`.
 
 ## Signature & verification
 
@@ -112,7 +143,7 @@ Output: `dist/HyperSuiteX_v2.0.0.zxp`.
   (`CN=Hyper Suite X, O=HyperSuite, C=SG`).
 
 Verified in-repo with `node build/zxp-sign.js` + an independent check:
-all 29 file digests, the manifest digest, the RSA signature over signedAttrs,
+every file digest, the manifest digest, the RSA signature over signedAttrs,
 and the certificate self-signature all verify.
 
 > Note: `openssl smime -verify` on OpenSSL 3.x uses a legacy PKCS7 path that
@@ -144,7 +175,8 @@ hyper-suite-x/            the extension (what gets installed)
   css/styles.css
   js/                     UI logic: views per tab, bridge, presets, sfx
   jsx/                    ExtendScript side: real AE automation
-  mock/mock-ae.js         simulated AE for browser mode
+    snapshots.js          v2.1 session undo-points
+  mock/mock-ae.js         simulated AE for browser mode (full command parity)
   CSXS/manifest.xml       CEP 11 manifest (client AEFT, dispatch HSX)
 build/
   zxp-sign.js             dependency-free JAR signer (Node)
@@ -154,5 +186,5 @@ install/
   install-windows.bat     copy to CEP folder + dev-mode registry
   install-macos.sh        same for macOS
 dist/
-  HyperSuiteX_v2.0.0.zxp  the signed installer package
+  HyperSuiteX_v2.1.0.zxp  the signed installer package
 ```

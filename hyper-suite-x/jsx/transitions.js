@@ -240,3 +240,126 @@ HSX_TRANSITION = {
     }
   }
 };
+
+/* ---------- v2.1: playhead edit inspector ---------- */
+HSX_CMD.edit_info = function (args) {
+  var comp = HSX.comp();
+  if (!comp) return { ok: false, error: "Open a composition first." };
+  var t = HSX.playhead();
+  var fr = comp.frameRate || 30;
+  var eps = 1.5 / fr; // 1.5 frames tolerance
+
+  var inL = null, inD = Infinity;
+  var outL = null, outD = Infinity;
+  var i, l;
+  for (i = 1; i <= comp.numLayers; i++) {
+    l = comp.layer(i);
+    try {
+      // in-clip: layer that ENDS at the playhead (or straddles it)
+      var dOut = t - l.outPoint;
+      if (dOut >= -eps && dOut < inD) { inD = dOut; inL = l; }
+      // out-clip: layer that STARTS at the playhead (or straddles it)
+      var dIn = l.inPoint - t;
+      if (dIn >= -eps && dIn < outD) { outD = dIn; outL = l; }
+    } catch (e) { }
+  }
+
+  function clip(l) {
+    if (!l) return null;
+    return {
+      name: l.name,
+      in: l.inPoint,
+      out: l.outPoint,
+      dur: (l.outPoint - l.inPoint)
+    };
+  }
+
+  var inC = clip(inL), outC = clip(outL);
+  var count = (inC && outC) ? 2 : (inC || outC ? 1 : 0);
+  return { ok: true, in: inC, out: outC, count: count, t: t, tc: HSX.timecode(t, fr) };
+};
+
+/* ---------- v2.1: motion / speed pack ---------- */
+HSX_CMD.motion = function (args) {
+  args = args || {};
+  var comp = HSX.requireComp();
+  var sel = HSX.requireSel(1);
+  var id = args.id || "slowmo";
+  var t = HSX.playhead();
+  var d = HSX.clampNum(args.dur, 0.2, 8, 1.2);
+  var names = { slowmo: "Slow-mo beat", whip: "Whip pan", stutter: "Stutter", overshoot: "Overshoot" };
+  if (!names[id]) throw new Error("Unknown motion: " + id);
+
+  comp.beginUndoGroup("HSX Motion: " + names[id]);
+  try {
+    var i, L, pos, base, bx, by;
+    if (id === "slowmo") {
+      for (i = 0; i < sel.length; i++) {
+        L = sel[i];
+        try { L.timeRemapping = true; } catch (e) { }
+        var tr = null;
+        try { tr = L.property("ADBE Time Stretch"); } catch (e1) { }
+        if (!tr || !tr.property("ADBE Time Stretch-0001")) continue;
+        var p = tr.property("ADBE Time Stretch-0001");
+        try {
+          HSX.clearKeys(p);
+          var t0 = t - d / 2;
+          p.setValueAtTime(t0, t0);
+          p.setValueAtTime(t0 + d * 0.35, t0 + d * 0.35);          // 100% speed
+          p.setValueAtTime(t0 + d * 0.65, t0 + d * 0.47);          // 40% speed dip
+          p.setValueAtTime(t0 + d, t0 + d * 0.82);                 // back to 100%
+          p.interpolationType = KeyframeInterpolationType.LINEAR;
+        } catch (e2) { }
+      }
+    } else if (id === "whip") {
+      var W = comp.width;
+      for (i = 0; i < sel.length; i++) {
+        L = sel[i];
+        pos = HSX.propPos(L);
+        base = HSX.valAt(pos, t);
+        bx = (base && base.length >= 2) ? base[0] : comp.width / 2;
+        by = (base && base.length >= 2) ? base[1] : comp.height / 2;
+        HSX.clearKeys(pos);
+        pos.setValueAtTime(t, [bx + W * 0.55, by]);
+        pos.setValueAtTime(t + 0.12, [bx, by]);
+        pos.setValueAtTime(t + d, [bx, by]);
+        try { pos.interpolationType = KeyframeInterpolationType.LINEAR; } catch (e3) { }
+        try { L.motionBlurEnabled = true; } catch (e4) { }
+      }
+    } else if (id === "stutter") {
+      for (i = 0; i < sel.length; i++) {
+        L = sel[i];
+        pos = HSX.propPos(L);
+        base = HSX.valAt(pos, t);
+        bx = (base && base.length >= 2) ? base[0] : comp.width / 2;
+        by = (base && base.length >= 2) ? base[1] : comp.height / 2;
+        HSX.clearKeys(pos);
+        var j;
+        for (j = 0; j <= 6; j++) {
+          var tt = t + d * (j / 6);
+          pos.setValueAtTime(tt, [bx + HSX.jitter(comp.width * 0.02), by + HSX.jitter(comp.height * 0.02)]);
+        }
+        try { pos.interpolationType = KeyframeInterpolationType.ROBOTIC; } catch (e5) { }
+      }
+    } else { // overshoot — anticipate + settle
+      for (i = 0; i < sel.length; i++) {
+        L = sel[i];
+        pos = HSX.propPos(L);
+        base = HSX.valAt(pos, t);
+        bx = (base && base.length >= 2) ? base[0] : comp.width / 2;
+        by = (base && base.length >= 2) ? base[1] : comp.height / 2;
+        HSX.clearKeys(pos);
+        pos.setValueAtTime(t, [bx, by]);
+        pos.setValueAtTime(t + d * 0.18, [bx - comp.width * 0.012, by]);
+        pos.setValueAtTime(t + d * 0.45, [bx + comp.width * 0.05, by]);
+        pos.setValueAtTime(t + d, [bx, by]);
+        try { pos.interpolationType = KeyframeInterpolationType.AUTO_BEZIER; } catch (e6) { }
+      }
+    }
+    comp.endUndoGroup();
+    return { ok: true, id: id, layers: sel.length, msg: names[id] + " applied" };
+  } catch (e) {
+    try { comp.endUndoGroup(); } catch (e2) { }
+    throw e;
+  }
+};

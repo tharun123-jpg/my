@@ -10,7 +10,7 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Building HyperSuiteX_v2.0.0.zxp ..."
+echo "Building HyperSuiteX_v2.1.0.zxp ..."
 node build/zxp-sign.js || { echo "[ERROR] Signing build failed."; exit 1; }
 
 echo

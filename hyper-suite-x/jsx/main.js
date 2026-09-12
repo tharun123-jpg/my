@@ -7,7 +7,7 @@ var HSX = {
 
   boot: function (fsPath) {
     try {
-      var names = ["lib.js", "library.js", "transitions.js", "general.js", "graph.js", "fx.js", "project.js", "audio.js"];
+      var names = ["lib.js", "library.js", "transitions.js", "general.js", "graph.js", "fx.js", "project.js", "audio.js", "snapshots.js"];
       var i, f, code;
       for (i = 0; i < names.length; i++) {
         f = new File(fsPath + "/jsx/" + names[i]);
@@ -29,10 +29,13 @@ var HSX = {
     try {
       var args = JSON.parse(argsStr || "{}");
       var fn = HSX_CMD[name];
-      if (!fn) return JSON.stringify({ error: "Unknown command: " + name });
+      if (!fn) return JSON.stringify({ ok: false, error: "Unknown command: " + name });
       return JSON.stringify(fn(args));
     } catch (e) {
-      return JSON.stringify({ error: name + ": " + e.toString() });
+      // strip ExtendScript stack trace — keep only the first line for the UI
+      var msg = String(e && e.message ? e.message : e).split("\n")[0];
+      if (msg.length > 180) msg = msg.substring(0, 180) + "…";
+      return JSON.stringify({ ok: false, error: name + ": " + msg });
     }
   },
 

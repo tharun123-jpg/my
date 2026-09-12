@@ -161,17 +161,32 @@
         drag = idx; el.style.cursor = "grabbing"; e.preventDefault();
       });
     });
+    // rAF-throttled drag: at most one redraw per frame
+    var lastEvt = null, rafId = 0;
     window.addEventListener("mousemove", function (e) {
       if (!drag) return;
-      var p = svgPoint(svg, e);
-      var t = Math.max(0, Math.min(1, fromX(p.x)));
-      var v = fromY(p.y);
-      var lim = document.getElementById("ease-over").checked ? 1.6 : 1;
-      v = Math.max(-0.6, Math.min(lim, v));
-      if (drag === 0) { P1.x = t; P1.y = v; } else { P2.x = t; P2.y = v; }
+      lastEvt = e;
+      if (rafId) return;
+      rafId = requestAnimationFrame(function () {
+        rafId = 0;
+        if (!drag || !lastEvt) return;
+        var p = svgPoint(svg, lastEvt);
+        var t = Math.max(0, Math.min(1, fromX(p.x)));
+        var v = fromY(p.y);
+        var overEl = document.getElementById("ease-over");
+        if (!overEl) return;
+        var lim = overEl.checked ? 1.6 : 1;
+        v = Math.max(-0.6, Math.min(lim, v));
+        if (drag === 0) { P1.x = t; P1.y = v; } else { P2.x = t; P2.y = v; }
+        draw();
+      });
+    });
+    window.addEventListener("mouseup", function () {
+      if (!drag) return;
+      drag = null; lastEvt = null;
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       draw();
     });
-    window.addEventListener("mouseup", function () { if (drag) { drag = null; draw(); } });
 
     document.getElementById("ease-sel").addEventListener("change", function (e) {
       loadEase(e.target.value);

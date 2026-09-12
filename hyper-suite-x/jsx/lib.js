@@ -5,6 +5,37 @@ HSX.comp = function () {
   try { return app.project.activeComp; } catch (e) { return null; }
 };
 
+/* ---------- stability guards ---------- */
+// coerce a number with bounds; def is used when v is NaN/missing
+HSX.clampNum = function (v, lo, hi, def) {
+  var n = Number(v);
+  if (isNaN(n)) n = (def == null ? 0 : Number(def));
+  if (n < lo) n = lo;
+  if (n > hi) n = hi;
+  return n;
+};
+// active comp or throw a clean, user-readable error
+HSX.requireComp = function () {
+  var comp = HSX.comp();
+  if (!comp) throw new Error("No composition is open in After Effects.");
+  return comp;
+};
+// current selection (throws if fewer than min layers)
+HSX.requireSel = function (min) {
+  var sel = HSX.sel();
+  var need = (min == null ? 1 : min);
+  if (sel.length < need) throw new Error("Select at least " + need + " layer(s) in After Effects first.");
+  return sel;
+};
+// true if layer is visible & enabled & has positive duration
+HSX.isLiveLayer = function (l) {
+  try {
+    if (!l.enabled) return false;
+    if (l.inPoint >= l.outPoint) return false;
+    return true;
+  } catch (e) { return false; }
+};
+
 HSX.timecode = function (t, fr) {
   var totalFrames = Math.floor(t * fr);
   var f = totalFrames % Math.floor(fr);

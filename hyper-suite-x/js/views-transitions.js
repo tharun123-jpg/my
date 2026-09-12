@@ -5,6 +5,13 @@
   var current = "flash";
   var done = {}; // id -> true (applied in this session)
 
+  var MOTIONS = [
+    { id: "slowmo", name: "Slow-mo beat", desc: "100% → 40% → 100% speed ramp through the playhead (time-remap)." },
+    { id: "whip", name: "Whip pan", desc: "Fast position whip with motion-blur ramp for a snappy scene change." },
+    { id: "stutter", name: "Stutter", desc: "Staccato position steps — glitchy, high-tension rhythm." },
+    { id: "overshoot", name: "Overshoot", desc: "Anticipate + settle move: quick push past the target, then back." }
+  ];
+
   function renderShell() {
     var root = document.getElementById("transitions-root");
     var h =
@@ -12,9 +19,16 @@
         '<div class="vt-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg></div>' +
         '<h2>Transitions</h2><span class="vt-sub">· One-click transitions on the playhead</span>' +
       '</div>' +
+      '<div id="edit-inspector" class="edit-inspector" style="display:none"></div>' +
       '<div class="tr-top"><canvas id="tr-canvas" width="600" height="300"></canvas><div class="tr-label" id="tr-label">Flash Cut</div></div>' +
-      '<div class="tr-list" id="tr-list"></div>';
+      '<div class="tr-list" id="tr-list"></div>' +
+      '<button class="btn ghost block" id="tr-queue-all" style="margin-top:10px">⚡ Queue all unlocked transitions (batch)</button>' +
+      '<div class="sec-label">MOTION PACK · SPEED &amp; MOVE</div>' +
+      '<div class="motion-grid">' + MOTIONS.map(function (m) {
+        return '<div class="motion-card" data-motion="' + m.id + '"><div class="mc-name">' + m.name + '</div><div class="mc-desc">' + m.desc + '</div></div>';
+      }).join("") + '</div>';
     root.innerHTML = h;
+    renderEditInspector();
 
     var list = document.getElementById("tr-list");
     var lh = "";
@@ -49,12 +63,55 @@
         unlockModal(def);
       }
     });
+
+    var qa = document.getElementById("tr-queue-all");
+    if (qa) qa.addEventListener("click", function () {
+      var list = D.TRANSITIONS.filter(function (t) { return !t.locked; });
+      if (!list.length) { B.toast("Nothing to queue.", "gold"); return; }
+      list.forEach(function (t) { B.queuePush("transition", { id: t.id }, t.name, { silent: true }); });
+      B.toast(list.length + " transitions queued — ⚙ header shows progress", "ok");
+    });
+
+    document.querySelectorAll("[data-motion]").forEach(function (card) {
+      card.addEventListener("click", function () {
+        var id = card.getAttribute("data-motion");
+        if (!B.canSpend("motion")) return;
+        B.spend(B.costFor("motion"), "motion");
+        B.hsx("motion", { id: id }, { label: "motion " + id, toastOk: "Motion applied: " + id });
+      });
+    });
+  }
+
+  function fmtT(t) {
+    var fr = 30, f = Math.round((t || 0) * fr);
+    function p2(n) { return (n < 10 ? "0" : "") + n; }
+    return p2(Math.floor(f / 60)) + ":" + p2(f % 60);
+  }
+
+  function renderEditInspector() {
+    var el = document.getElementById("edit-inspector");
+    if (!el) return;
+    var r = B.hsx("edit_info", {}, { silent: true });
+    if (!r || r.error || !r.ok) { el.style.display = "none"; return; }
+    el.style.display = "";
+    function clip(c, dir) {
+      if (!c) return '<div class="ei-clip ' + dir + '"><div class="ei-name" style="color:var(--tx3)">—</div><div class="ei-meta">no clip</div></div>';
+      return '<div class="ei-clip ' + dir + '"><div class="ei-name">' + B.esc(c.name) + '</div><div class="ei-meta">' +
+             fmtT(c.in) + ' → ' + fmtT(c.out) + ' · ' + (c.dur != null ? c.dur.toFixed(2) + "s" : "") + '</div></div>';
+    }
+    el.innerHTML =
+      '<div class="ei-clip-wrap" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
+        clip(r.in, "in") +
+        '<div class="ei-ph" title="playhead"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 4v16M5 4h14l-4 6 4 6H5" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></div>' +
+        clip(r.out, "out") +
+      '</div>' +
+      '<span class="pill ' + (r.count >= 2 ? "green" : "gold") + '">' + (r.count >= 2 ? "2 clips at playhead ✓" : r.count === 1 ? "1 clip — no edit" : "no clips") + '</span>';
   }
 
   function apply(def) {
     if (!B.canSpend("transition")) return;
     B.spend(B.costFor("transition"), "transition");
-    var r = B.cmd("transition", { id: def.id });
+    var r = B.hsx("transition", { id: def.id }, { label: def.name, silent: true });
     if (r && r.error) { B.toast(r.error, "err"); return; }
     done[def.id] = true;
     B.toast(def.name + " applied at the playhead", "ok");

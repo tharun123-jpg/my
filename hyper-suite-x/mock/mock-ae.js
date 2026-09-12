@@ -97,8 +97,66 @@
       case "resize_fit":
         r.msg = "mock: layers fitted";
         break;
+      case "snapshot_save": {
+        MOCK.snaps = MOCK.snaps || [];
+        var id = (MOCK.snapSeq = (MOCK.snapSeq || 0) + 1);
+        MOCK.snaps.push({ id: id, name: (args.name || "Snapshot") + "", when: tc(), scope: args.scope || "sel", layers: MOCK.sel, keys: 34 });
+        if (MOCK.snaps.length > 12) MOCK.snaps.shift();
+        r.id = id; r.layers = MOCK.sel; r.keys = 34; r.total = MOCK.snaps.length;
+        break;
+      }
+      case "snapshot_list": {
+        MOCK.snaps = MOCK.snaps || [];
+        r.snaps = MOCK.snaps;
+        break;
+      }
+      case "snapshot_restore": {
+        MOCK.snaps = MOCK.snaps || [];
+        var found = null;
+        for (var si = 0; si < MOCK.snaps.length; si++) {
+          if (MOCK.snaps[si].id === args.id) { found = MOCK.snaps[si]; break; }
+        }
+        if (!found) return { ok: false, error: "Snapshot not found in this session." };
+        r.restored = found.layers; r.missing = 0;
+        r.msg = "mock: restored “" + found.name + "”";
+        break;
+      }
+      case "snapshot_delete": {
+        MOCK.snaps = MOCK.snaps || [];
+        var di = -1;
+        for (var sj = 0; sj < MOCK.snaps.length; sj++) { if (MOCK.snaps[sj].id === args.id) { di = sj; break; } }
+        if (di < 0) return { ok: false, error: "Snapshot not found in this session." };
+        MOCK.snaps.splice(di, 1);
+        r.remaining = MOCK.snaps.length;
+        break;
+      }
+      case "scan":
+        r.items = [
+          { sev: "ok", msg: "Comp size " + MOCK.w + "×" + MOCK.h + " is reasonable." },
+          { sev: "info", msg: "2 duplicate layer name(s) — unique names make edits & multi-select safer." },
+          { sev: "warn", msg: "1 invisible layer(s) (hidden or 0% opacity) — hide or delete to speed up playback." },
+          { sev: "info", msg: "41 effect instance(s) across " + MOCK.sel + " layer(s)." },
+          { sev: "info", msg: "No keyframes on transform properties — nothing to optimize yet." }
+        ];
+        r.layers = MOCK.sel;
+        break;
+      case "edit_info":
+        r.in = { name: "01_hero_cam_v3", in: MOCK.t - 2.4, out: MOCK.t, dur: 2.4 };
+        r.out = { name: "02_insert_detail", in: MOCK.t, out: MOCK.t + 3.1, dur: 3.1 };
+        r.count = 2;
+        r.t = MOCK.t;
+        r.tc = tc();
+        break;
+      case "motion":
+        if (args.id === "slowmo" || args.id === "whip" || args.id === "stutter" || args.id === "overshoot") {
+          r.msg = "mock: " + args.id + " applied to " + MOCK.sel + " layer(s)";
+        } else {
+          return { ok: false, error: "Unknown motion: " + args.id };
+        }
+        break;
       default:
-        r.msg = "mock: " + name;
+        // parity with jsx/main.js: unknown commands are errors
+        return { ok: false, error: "Unknown command: " + name };
     }
     return r;
   }

@@ -16,7 +16,11 @@
     ["marker",        "{} — drop marker at playhead"],
     ["resize_fit",    "{} — scale & center selected layers to comp"],
     ["purge",         "{} — purge all caches"],
-    ["sfx",           "{id: 'impact'} — drop a sound: impact, boom, whoosh, riser, tick, click"]
+    ["sfx",           "{id: 'impact'} — drop a sound: impact, boom, whoosh, riser, tick, click"],
+    ["snapshot_save", "{name: 'my point', scope: 'sel'|'comp'} — save a restorable snapshot (undo point) of layer state"],
+    ["snapshot_restore", "{name: 'my point'} — restore a previously saved snapshot"],
+    ["scan_project",  "{} — scan the project for issues (duplicates, zero-opacity layers, big comps)"],
+    ["motion",        "{id: 'slowmo'|'whip'|'stutter'|'overshoot'} — speed/move pack on selected layers"]
   ];
 
   function systemPrompt() {
@@ -184,7 +188,7 @@
       var btn = document.createElement("button");
       btn.className = "ae-action";
       btn.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M6 4l14 8-14 8V4z" fill="currentColor"/></svg>Apply in After Effects · ' + B.esc(cmd.ae_command);
-      btn.addEventListener("click", function () { runAECommand(cmd, btn); });
+      btn.addEventListener("click", function () { runAECommand(cmd, btn, holder); });
       holder.appendChild(btn);
     }
     var box = document.getElementById("chat-msgs");
@@ -202,9 +206,9 @@
     return null;
   }
 
-  function runAECommand(cmd, btn) {
+  function runAECommand(cmd, btn, holder) {
     var name = cmd.ae_command, args = cmd.args || {};
-    if (btn) { btn.classList.add("done"); btn.textContent = "Applied ✓"; btn.disabled = true; }
+    if (btn) { btn.classList.add("busy"); btn.textContent = "Running…"; btn.disabled = true; }
     var mapping = {
       apply_preset: ["preset", args.presetId ? { preset: window.HSX_DATA.findPreset(args.presetId) } : null],
       transition:   ["transition", { id: args.id }],
@@ -214,11 +218,15 @@
       marker:       ["marker", {}],
       resize_fit:   ["resize_fit", {}],
       purge:        ["purge", {}],
-      sfx:          ["preset", { preset: null, sfxId: args.id }]
+      sfx:          ["preset", { preset: null, sfxId: args.id }],
+      snapshot_save: ["snapshot_save", { name: args.name || "AI snapshot", scope: args.scope || "sel" }],
+      snapshot_restore: ["snapshot_restore", { name: args.name }],
+      scan_project: ["scan", {}],
+      motion:       ["motion", { id: args.id || "slowmo" }]
     };
     var m = mapping[name];
-    if (!m || !m[1]) { B.toast("Unknown command: " + name, "err"); return; }
-    if (!B.canSpend(m[0])) return;
+    if (!m || !m[1]) { B.toast("Unknown command: " + name, "err"); if (btn) btn.disabled = false; return; }
+    if (!B.canSpend(m[0])) { if (btn) btn.disabled = false; return; }
     B.spend(B.costFor(m[0]), m[0]);
     var payload = m[1];
     if (name === "sfx") {
@@ -226,8 +234,26 @@
       payload = { preset: sp, b64: window.HSX_SFX.synthesize(args.id || "impact") };
     }
     var r = B.cmd(m[0], payload);
-    if (r && r.error) B.toast(r.error, "err");
-    else B.toast("Done — " + name + " applied in After Effects", "ok");
+    if (r && r.error) {
+      B.toast(r.error, "err");
+      // error card with retry
+      if (holder) {
+        var err = document.createElement("div");
+        err.className = "chat-err";
+        err.innerHTML = '<span class="ce-msg">⚠ ' + B.esc(r.error) + '</span><button class="btn sm" data-retry>↻ Retry</button>';
+        holder.appendChild(err);
+        err.querySelector("[data-retry]").addEventListener("click", function () {
+          err.remove();
+          runAECommand(cmd, btn, holder); // btn stays enabled for next attempt
+        });
+        var box = document.getElementById("chat-msgs");
+        box.scrollTop = box.scrollHeight;
+      }
+      if (btn) { btn.classList.remove("busy"); btn.textContent = "Apply in After Effects · " + name; btn.disabled = false; }
+    } else {
+      B.toast("Done — " + name + " applied in After Effects", "ok");
+      if (btn) { btn.classList.remove("busy"); btn.classList.add("done"); btn.textContent = "Applied ✓"; btn.disabled = true; }
+    }
   }
 
   function demoReply(text, bubble, holder) {
@@ -249,6 +275,15 @@
     } else if (/(glow|neon)/.test(t)) {
       reply = "Add the Glow FX toggle — radius 12, intensity 0.6, threshold 60. Toggle it on for the whole comp or selected layers.";
       cmd = { ae_command: "fx", args: { effect: "glow", on: true } };
+    } else if (/(snapshot|undo point|save state|backup)/.test(t)) {
+      reply = "Saving a snapshot of the current state — every keyframe on the selected layers gets stored. If anything goes wrong, I can restore it in one click. These live for this session.";
+      cmd = { ae_command: "snapshot_save", args: { name: "AI snapshot", scope: "sel" } };
+    } else if (/(scan|health|check (the )?project|issues)/.test(t)) {
+      reply = "Running a full health scan — it checks for duplicate layer names, invisible layers, bloated effects and oversized comps, then suggests fixes.";
+      cmd = { ae_command: "scan_project", args: {} };
+    } else if (/(slow.?mo|speed ramp|time.?remap|whip|stutter|overshoot|anticipate)/.test(t)) {
+      reply = "Dropping a motion-pack move on your selection: a 100%→40%→100% slow-mo ramp through the playhead, driven by time-remap so the rest of the timeline stays put.";
+      cmd = { ae_command: "motion", args: { id: "slowmo" } };
     } else {
       reply = "I'm running in demo mode (no API key set). Connect any OpenAI-compatible API in Profile & settings and I'll answer for real — and I can execute actions directly in After Effects, like:\n\n• “make the selected layer shake like a handheld camera”\n• “add a flash transition at the playhead”\n• “grade this clip teal & orange”";
     }

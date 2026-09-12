@@ -129,3 +129,94 @@ HSX_CMD.purge = function (args) {
     return { error: e.toString() };
   }
 };
+
+/* ---------- v2.1 health scan ---------- */
+HSX_CMD.scan = function (args) {
+  var comp = HSX.requireComp();
+  var items = [];
+  var i, l;
+
+  // duplicate layer names
+  var seen = {}, dups = 0;
+  for (i = 1; i <= comp.numLayers; i++) {
+    l = comp.layer(i);
+    if (seen[l.name]) dups++;
+    else seen[l.name] = true;
+  }
+  if (dups > 0) items.push({ sev: "info", msg: dups + " duplicate layer name(s) — unique names make edits & multi-select safer." });
+
+  // invisible layers (opacity 0 or hidden)
+  var zc = 0;
+  for (i = 1; i <= comp.numLayers; i++) {
+    l = comp.layer(i);
+    try {
+      if (!l.visible) { zc++; continue; }
+      var op = HSX.propOpacity(l);
+      if (op.numKeys === 0 && op.value <= 0.5) zc++;
+    } catch (e) { }
+  }
+  if (zc > 0) items.push({ sev: "warn", msg: zc + " invisible layer(s) (hidden or 0% opacity) — hide or delete to speed up playback." });
+
+  // disabled layers
+  var dis = 0;
+  for (i = 1; i <= comp.numLayers; i++) {
+    l = comp.layer(i);
+    try { if (!l.enabled) dis++; } catch (e) { }
+  }
+  if (dis > 0) items.push({ sev: "info", msg: dis + " disabled layer(s). Purging reclaims their cached data." });
+
+  // effects load
+  var fxTotal = 0, heavy = 0;
+  for (i = 1; i <= comp.numLayers; i++) {
+    l = comp.layer(i);
+    var fxCount = 0;
+    try {
+      var parade = HSX.fxParade(l);
+      fxCount = parade.numProperties;
+    } catch (e) { }
+    fxTotal += fxCount;
+    if (fxCount > 6) heavy++;
+  }
+  items.push({ sev: "info", msg: fxTotal + " effect instance(s) across " + comp.numLayers + " layer(s)." });
+  if (heavy > 0) items.push({ sev: "warn", msg: heavy + " layer(s) carry more than 6 effects each — precomposing them will boost the preview." });
+
+  // oversized comp
+  if (comp.width * comp.height > 3840 * 2160) {
+    items.push({ sev: "warn", msg: "Comp is " + comp.width + "×" + comp.height + " — above 4K. Renders and previews will be slow." });
+  } else {
+    items.push({ sev: "ok", msg: "Comp size " + comp.width + "×" + comp.height + " is reasonable." });
+  }
+
+  // oversized solids in the bin
+  var bigItems = 0;
+  try {
+    var proj = app.project;
+    for (i = 1; i <= proj.numItems; i++) {
+      var it = proj.item(i);
+      if (it instanceof SolidItem) {
+        try {
+          if (it.width > comp.width * 1.05 || it.height > comp.height * 1.05) bigItems++;
+        } catch (e) { }
+      }
+    }
+  } catch (e) { }
+  if (bigItems > 0) items.push({ sev: "info", msg: bigItems + " solid(s) in the bin are larger than the comp." });
+
+  // total keyframes
+  var totalKeys = 0;
+  for (i = 1; i <= comp.numLayers; i++) {
+    l = comp.layer(i);
+    try {
+      var tg = HSX.tg(l);
+      var pn;
+      for (pn = 1; pn <= tg.numProperties; pn++) {
+        var pp = tg.property(pn);
+        totalKeys += pp.numKeys;
+      }
+    } catch (e) { }
+  }
+  if (totalKeys === 0) items.push({ sev: "info", msg: "No keyframes on transform properties — nothing to optimize yet." });
+  else items.push({ sev: "ok", msg: totalKeys + " transform keyframe(s) in this comp." });
+
+  return { ok: true, items: items, layers: comp.numLayers };
+};

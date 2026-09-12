@@ -66,7 +66,7 @@
     }
   }
   function costFor(cmd) {
-    var c = { ai: 4, preset: 1, transition: 2, fx: 1, look: 1, render: 10, split: 1, purge: 1, sfx: 1 };
+    var c = { ai: 4, preset: 1, transition: 2, fx: 1, look: 1, render: 10, split: 1, purge: 1, sfx: 1, snapshot: 1, scan: 1, motion: 2 };
     return c[cmd] != null ? c[cmd] : 1;
   }
   function canSpend(cmd) {
@@ -244,6 +244,117 @@
     catch (e) { onErr("Network error: " + e.message); }
   }
 
+  /* ---------- activity log (ring buffer) ---------- */
+  var LOGS = [];
+  function log(kind, msg) {
+    var d = new Date();
+    function p2(n) { return (n < 10 ? "0" : "") + n; }
+    LOGS.push({
+      t: p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds()),
+      kind: kind || "info",
+      msg: String(msg).substring(0, 180)
+    });
+    if (LOGS.length > 80) LOGS.splice(0, LOGS.length - 80);
+  }
+
+  /* ---------- unified command runner (stability layer) ----------
+     try/catch + structured errors + activity log + toasts.
+     opts: { label, toastOk, silent, kind } */
+  function hsx(name, args, opts) {
+    opts = opts || {};
+    var r = null, err = null;
+    try { r = cmd(name, args); } catch (e) { err = e.message || String(e); }
+    if (err) {
+      log("err", name + " — " + err);
+      if (!opts.silent) toast("⚠ " + err, "err");
+      return { error: err };
+    }
+    if (r === null) {
+      log("err", name + " — After Effects not connected");
+      if (!opts.silent) toast("After Effects not connected — open AE or use browser preview mode", "err");
+      return { error: "After Effects not connected" };
+    }
+    if (r.error) {
+      log("err", name + " — " + r.error);
+      if (!opts.silent) toast(r.error, "err");
+      return r;
+    }
+    log("ok", name + (opts.label ? " · " + opts.label : ""));
+    if (opts.toastOk) toast(opts.toastOk, opts.kind || "ok");
+    return r;
+  }
+
+  /* ---------- batch queue ---------- */
+  var QUEUE = { items: [], running: false, cancelled: false };
+  var queueHook = null;
+  function onQueueChange(fn) { queueHook = fn; }
+  function queueNotify() {
+    var chip = document.getElementById("queue-chip");
+    if (chip) {
+      var n = 0;
+      for (var i = 0; i < QUEUE.items.length; i++) {
+        if (QUEUE.items[i].status === "pending" || QUEUE.items[i].status === "running") n++;
+      }
+      chip.textContent = n ? "⚙ " + n : "✓ done";
+      chip.classList.toggle("hidden", n === 0);
+      chip.classList.toggle("busy", QUEUE.running);
+    }
+    if (queueHook) queueHook(QUEUE);
+  }
+  function queuePush(name, args, label, opts) {
+    QUEUE.items.push({ name: name, args: args || {}, label: label || name, opts: opts || {}, status: "pending", result: "" });
+    queueNotify();
+    queueRun();
+  }
+  function queueRun() {
+    if (QUEUE.running) return;
+    if (QUEUE.cancelled) return;
+    var it = null;
+    for (var i = 0; i < QUEUE.items.length; i++) {
+      if (QUEUE.items[i].status === "pending") { it = QUEUE.items[i]; break; }
+    }
+    if (!it) { QUEUE.running = false; QUEUE.cancelled = false; queueNotify(); return; }
+    QUEUE.running = true;
+    it.status = "running"; queueNotify();
+    var r = hsx(it.name, it.args, it.opts);
+    if (QUEUE.cancelled) { it.status = "cancelled"; it.result = "cancelled"; }
+    else if (r && r.error) { it.status = "error"; it.result = String(r.error).substring(0, 120); }
+    else { it.status = "done"; it.result = (r && r.msg) || "ok"; }
+    QUEUE.running = false;
+    queueNotify();
+    queueRun(); // next pending item
+  }
+  function queueCancel() {
+    QUEUE.cancelled = true;
+    for (var i = 0; i < QUEUE.items.length; i++) {
+      if (QUEUE.items[i].status === "pending") { QUEUE.items[i].status = "cancelled"; QUEUE.items[i].result = "cancelled"; }
+    }
+    queueNotify();
+  }
+  function queueClear() {
+    QUEUE.items = QUEUE.items.filter(function (it) { return it.status === "running"; });
+    queueNotify();
+  }
+
+  /* ---------- settings import ---------- */
+  function importSettings(text) {
+    try {
+      var d = JSON.parse(text);
+      if (typeof d.credits === "number") STATE.credits = Math.max(0, Math.min(9999, Math.round(d.credits)));
+      if (d.plan && HSX_BRAND.plans[d.plan]) STATE.plan = d.plan;
+      if (d.favorites && typeof d.favorites === "object") STATE.favorites = d.favorites;
+      if (d.ai && typeof d.ai === "object") {
+        if (d.ai.baseUrl) STATE.ai.baseUrl = String(d.ai.baseUrl);
+        if (typeof d.ai.apiKey === "string") STATE.ai.apiKey = d.ai.apiKey;
+        if (d.ai.modelFast) STATE.ai.modelFast = String(d.ai.modelFast);
+        if (d.ai.modelPro) STATE.ai.modelPro = String(d.ai.modelPro);
+      }
+      save(); refreshHeader();
+      log("ok", "settings imported");
+      return true;
+    } catch (e) { return false; }
+  }
+
   /* ---------- public ---------- */
   window.HSX_BRIDGE = {
     STATE: STATE,
@@ -262,6 +373,15 @@
     closeModal: closeModal,
     esc: esc,
     aiChat: aiChat,
-    load: load
+    load: load,
+    log: log,
+    LOGS: LOGS,
+    hsx: hsx,
+    QUEUE: QUEUE,
+    queuePush: queuePush,
+    queueCancel: queueCancel,
+    queueClear: queueClear,
+    onQueueChange: onQueueChange,
+    importSettings: importSettings
   };
 })();

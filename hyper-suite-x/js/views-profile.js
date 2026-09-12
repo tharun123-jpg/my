@@ -63,8 +63,11 @@
         '<h3>DATA</h3>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
           '<button class="btn sm" id="pf-export">Export settings (JSON)</button>' +
+          '<button class="btn sm" id="pf-import">Import settings (JSON)</button>' +
+          '<input type="file" id="pf-import-file" accept=".json,application/json" class="hidden">' +
           '<button class="btn sm danger" id="pf-wipe">Wipe local data</button>' +
         '</div>' +
+        '<div class="hint" style="margin-top:8px">Import restores credits, plan, favorites and AI settings from an exported file. The file only ever leaves this machine if you share it — it includes your API key.</div>' +
       '</div>' +
 
       '<div class="card prof-sec" style="margin-bottom:8px">' +
@@ -127,12 +130,28 @@
       renderShell();
     });
     document.getElementById("pf-export").addEventListener("click", function () {
-      var blob = new Blob([JSON.stringify({ credits: B.STATE.credits, plan: B.STATE.plan, favorites: B.STATE.favorites, ai: { baseUrl: B.STATE.ai.baseUrl, modelFast: B.STATE.ai.modelFast, modelPro: B.STATE.ai.modelPro } }, null, 2)], { type: "application/json" });
+      var blob = new Blob([JSON.stringify({ app: "hyper-suite-x", version: HSX_BRAND.version, credits: B.STATE.credits, plan: B.STATE.plan, favorites: B.STATE.favorites, ai: { baseUrl: B.STATE.ai.baseUrl, apiKey: B.STATE.ai.apiKey, modelFast: B.STATE.ai.modelFast, modelPro: B.STATE.ai.modelPro } }, null, 2)], { type: "application/json" });
       var a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
       a.download = "hyper-suite-x-settings.json";
       document.body.appendChild(a); a.click(); a.remove();
       B.toast("Settings exported", "ok");
+    });
+    document.getElementById("pf-import").addEventListener("click", function () {
+      document.getElementById("pf-import-file").click();
+    });
+    document.getElementById("pf-import-file").addEventListener("change", function (e) {
+      var f = e.target.files && e.target.files[0];
+      if (!f) return;
+      var rd = new FileReader();
+      rd.onload = function () {
+        var ok = B.importSettings(String(rd.result || ""));
+        B.toast(ok ? "Settings imported ✓" : "Import failed — not a valid settings file", ok ? "ok" : "err");
+        if (ok) renderShell();
+      };
+      rd.onerror = function () { B.toast("Could not read file", "err"); };
+      rd.readAsText(f);
+      e.target.value = "";
     });
     document.getElementById("pf-wipe").addEventListener("click", function () {
       B.modal({

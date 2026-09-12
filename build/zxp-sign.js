@@ -190,7 +190,7 @@ const manifest =
   "Extension: Hyper Suite X\r\n" +
   "ManifestVersion: 2.0\r\n" +
   "ID: com.hyper.suite-x\r\n" +
-  "Version: 2.0.0\r\n" +
+  "Version: 2.1.0\r\n" +
   "Priority: 500\r\n" +
   "StartupAsLateStartup: false\r\n" +
   "Icon:\r\n" +
@@ -216,6 +216,6 @@ entries.push({ name: "META-INF/CERT.RSA", data: certRsa });
 
 fs.mkdirSync(OUT, { recursive: true });
 const zxp = makeZip(entries);
-const outName = path.join(OUT, "HyperSuiteX_v2.0.0.zxp");
+const outName = path.join(OUT, "HyperSuiteX_v2.1.0.zxp");
 fs.writeFileSync(outName, zxp);
 console.log("WROTE", outName, zxp.length, "bytes,", entries.length, "entries");

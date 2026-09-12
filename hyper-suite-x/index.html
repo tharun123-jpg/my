@@ -24,6 +24,14 @@
       </div>
     </div>
     <div id="hdr-right">
+      <button id="palette-btn" title="Command palette (Ctrl+K)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2"/><path d="m20 20-4.5-4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="kbd">Ctrl K</span>
+      </button>
+      <div id="queue-chip" class="hidden" title="Batch queue">⚙ 0</div>
+      <button id="activity-btn" title="Activity log">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2.5-7 4 14 2.5-7h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
       <div id="credits-chip" title="Credits">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="var(--gold)"/></svg>
         <span id="credits-num">222</span>
@@ -76,9 +84,46 @@
 <!-- toast + modal roots -->
 <div id="toasts"></div>
 <div id="modal-backdrop" class="hidden"><div id="modal-box"></div></div>
+
+<!-- ============ COMMAND PALETTE (Ctrl+K) ============ -->
+<div id="palette-backdrop" class="hidden">
+  <div id="palette">
+    <div class="pal-head">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="6.5" stroke="var(--gold)" stroke-width="2"/><path d="m20 20-4.5-4.5" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="pal-input" placeholder="Type a command… (e.g. flash, purge, snapshot, render)" autocomplete="off" spellcheck="false">
+      <span class="kbd esc">esc</span>
+    </div>
+    <div id="pal-list"></div>
+    <div class="pal-foot"><span class="kbd">↑↓</span> navigate · <span class="kbd">↵</span> run · <span class="kbd">esc</span> close</div>
+  </div>
+</div>
+
+<!-- ============ DRAWER (queue / activity) ============ -->
+<div id="drawer-backdrop" class="hidden"></div>
+<aside id="drawer" class="hidden">
+  <div class="dw-head">
+    <div class="dw-tabs">
+      <button class="dw-tab active" data-dw="queue">Queue</button>
+      <button class="dw-tab" data-dw="log">Activity</button>
+    </div>
+    <button id="dw-close" title="Close">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="dw-body" id="dw-queue-body"></div>
+  <div class="dw-body hidden" id="dw-log-body"></div>
+</aside>
 <div id="ctx-menu" class="hidden"></div>
 
 <script src="js/brand.js"></script>
+<script>
+  // Browser preview only: provide the mock AE when the real CEP bridge is
+  // absent. In After Effects window.evalScript already exists, so nothing is
+  // written and the mock can never shadow the real bridge.
+  if (!window.evalScript) {
+    document.write('<script src="mock/mock-ae.js"><\/script>');
+  }
+</script>
 <script src="js/bridge.js"></script>
 <script src="js/data-presets.js"></script>
 <script src="js/sfx.js"></script>

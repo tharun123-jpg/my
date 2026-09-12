@@ -4,7 +4,10 @@
   var B = window.HSX_BRIDGE, D = window.HSX_DATA;
   var openCats = { shakes: true };
   var search = "";
+  var searchTimer = null;
   var libTab = "presets"; // presets | sfx | texture
+  var selSet = {}; // multi-select for batch queue (id -> true)
+  var thumbObs = null;
 
   function renderShell() {
     var root = document.getElementById("lib-root");
@@ -28,11 +31,13 @@
       '<div class="lib-foot">' +
         '<div class="toggle-row"><span>Stretch keyframes to layer duration</span><label class="switch"><input type="checkbox" id="lib-stretch"><span class="sl"></span></label></div>' +
         '<div class="toggle-row"><span>Apply at layer start</span><label class="switch"><input type="checkbox" id="lib-atstart" checked><span class="sl"></span></label></div>' +
+        '<button class="btn ghost block" id="lib-queue-sel" style="margin-bottom:6px">Queue selected (Ctrl/Shift-click)</button>' +
         '<button class="btn gold block" id="lib-apply">Apply to selected</button>' +
       '</div>';
     root.innerHTML = h;
     renderBody();
     rebind();
+    updateSelBtn();
   }
 
   function catCounts() {
@@ -69,7 +74,9 @@
     var h = "";
     items.forEach(function (p) {
       var fav = B.STATE.favorites[p.id];
-      h += '<div class="preset-card" data-preset="' + p.id + '" data-fav-toggle="' + p.id + '">' +
+      var sel = selSet[p.id];
+      h += '<div class="preset-card' + (sel ? " sel" : "") + '" data-preset="' + p.id + '" data-fav-toggle="' + p.id + '">' +
+           (sel ? '<div class="sel-check">✓</div>' : '') +
            '<div class="thumb"><canvas width="132" height="52" data-thumb="' + p.id + '"></canvas></div>' +
            '<div class="p-name">' + p.name +
              '<span class="star' + (fav ? " on" : "") + '" data-star="' + p.id + '" title="Favorite">' +
@@ -86,16 +93,34 @@
     return '<div class="cat-items" style="padding-left:0">' + cardsHtml(items) + '</div>';
   }
 
-  /* ---------- canvas thumbnails ---------- */
+  /* ---------- canvas thumbnails (lazy: only when visible) ---------- */
   function drawThumbs(scope) {
     var cv = scope.querySelectorAll("canvas[data-thumb]");
-    for (var i = 0; i < cv.length; i++) drawThumb(cv[i]);
+    if (thumbObs) thumbObs.disconnect();
+    if (!("IntersectionObserver" in window)) {
+      for (var i = 0; i < cv.length; i++) drawThumb(cv[i]);
+      return;
+    }
+    thumbObs = new IntersectionObserver(function (entries) {
+      for (var k = 0; k < entries.length; k++) {
+        if (entries[k].isIntersecting) {
+          drawThumb(entries[k].target);
+          thumbObs.unobserve(entries[k].target);
+        }
+      }
+    }, { root: scope, rootMargin: "120px" });
+    for (var j = 0; j < cv.length; j++) {
+      if (cv[j].dataset.done === cv[j].getAttribute("data-thumb")) continue; // already painted
+      thumbObs.observe(cv[j]);
+    }
   }
 
   function drawThumb(cv) {
     var id = cv.getAttribute("data-thumb");
     var p = D.findPreset(id);
     if (!p) return;
+    if (cv.dataset.done === id) return;
+    cv.dataset.done = id;
     var ctx = cv.getContext("2d");
     var w = cv.width, h = cv.height;
     ctx.clearRect(0, 0, w, h);
@@ -275,18 +300,46 @@
     var atStart = document.getElementById("lib-atstart") ? document.getElementById("lib-atstart").checked : true;
     var r;
     if (p.kind === "sfx") {
-      r = B.cmd("preset", { preset: p, stretch: stretch, atStart: atStart, b64: window.HSX_SFX.synthesize(p.params.sfx) });
+      r = B.hsx("preset", { preset: p, stretch: stretch, atStart: atStart, b64: window.HSX_SFX.synthesize(p.params.sfx) }, { label: p.name, silent: true });
     } else {
-      r = B.cmd("preset", { preset: p, stretch: stretch, atStart: atStart });
+      r = B.hsx("preset", { preset: p, stretch: stretch, atStart: atStart }, { label: p.name, silent: true });
     }
     if (r && r.error) B.toast(r.error, "err");
     else B.toast('Applied “' + p.name + '”' + (r && r.layers != null ? " to " + r.layers + " layer(s)" : ""), "ok");
   }
 
+  function applyQueued(list) {
+    list.forEach(function (p) {
+      B.queuePush("preset", { preset: p, stretch: false, atStart: true }, p.name, { silent: true });
+    });
+    B.toast(list.length + " preset(s) queued — see ⚙ in the header", "ok");
+  }
+
+  function paintSel(card, id) {
+    var on = !!selSet[id];
+    card.classList.toggle("sel", on);
+    var check = card.querySelector(".sel-check");
+    if (on && !check) {
+      check = document.createElement("div");
+      check.className = "sel-check";
+      check.textContent = "✓";
+      card.insertBefore(check, card.firstChild);
+    } else if (!on && check) check.remove();
+    updateSelBtn();
+  }
+  function updateSelBtn() {
+    var btn = document.getElementById("lib-queue-sel");
+    if (!btn) return;
+    var n = Object.keys(selSet).length;
+    btn.textContent = n ? "⚡ Queue " + n + " selected" : "Queue selected (Ctrl/Shift-click)";
+    btn.classList.toggle("gold", n > 0);
+  }
+
   function rebind() {
     document.getElementById("lib-search").addEventListener("input", function (e) {
-      search = e.target.value.toLowerCase();
-      renderBody();
+      var v = e.target.value.toLowerCase();
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () { search = v; renderBody(); }, 130); // debounced
     });
     document.getElementById("lib-refresh").addEventListener("click", function () { B.toast("Library refreshed", "ok"); });
     var root = document.getElementById("lib-root");
@@ -314,11 +367,34 @@
       var card = e.target.closest("[data-preset]");
       if (card) {
         var p = D.findPreset(card.getAttribute("data-preset"));
-        if (p) applyPreset(p);
+        if (!p) return;
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          // multi-select for batch queue
+          var pid = card.getAttribute("data-preset");
+          if (selSet[pid]) delete selSet[pid];
+          else selSet[pid] = true;
+          paintSel(card, pid);
+          return;
+        }
+        applyPreset(p);
       }
     });
+    var qs = document.getElementById("lib-queue-sel");
+    if (qs) qs.addEventListener("click", function () {
+      var list = [];
+      Object.keys(selSet).forEach(function (id) {
+        var p = D.findPreset(id);
+        if (p) list.push(p);
+      });
+      if (!list.length) { B.toast("Ctrl/Shift-click cards to pick several, then queue them.", "gold"); return; }
+      if (!B.canSpend("preset")) return;
+      applyQueued(list);
+      selSet = {};
+      renderBody();
+    });
     document.getElementById("lib-apply").addEventListener("click", function () {
-      // applies the first open category's first search result? No — applies to selection: last hovered/selected preset
+      var n = Object.keys(selSet).length;
+      if (n) { applyQueued(Object.keys(selSet).map(function (id) { return D.findPreset(id); }).filter(Boolean)); selSet = {}; renderBody(); return; }
       B.toast("Select a preset card and press ⚡ Apply, or use the card directly.", "gold");
     });
   }

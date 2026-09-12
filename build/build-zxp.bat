@@ -15,7 +15,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-echo Building HyperSuiteX_v2.0.0.zxp ...
+echo Building HyperSuiteX_v2.1.0.zxp ...
 node build\zxp-sign.js
 if errorlevel 1 (
   echo [ERROR] Signing build failed.
