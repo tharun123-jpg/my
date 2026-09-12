@@ -1,0 +1,4 @@
+node_modules/
+.zxp-tools/
+*.log
+.DS_Store

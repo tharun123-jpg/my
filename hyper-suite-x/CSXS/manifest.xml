@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Extension ModuleVersion="2.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ExtensionList>
+        <Extension Id="com.hyper.suite-x" Version="2.1.0" Client="AEFT"/>
+    </ExtensionList>
+    <ExecutionEnvironment>
+        <ShellExtension>
+            <Type>JS</Type>
+            <Path>index.html</Path>
+            <Environment>
+                <Variable Name="$webview" Value=""/>
+            </Environment>
+        </ShellExtension>
+    </ExecutionEnvironment>
+    <DispatchInfoList>
+        <CScriptDispatchInfo object="true">
+            <DispatchName>HSX</DispatchName>
+            <ClassId>com.hyper.suite-x</ClassId>
+            <ScriptPath>jsx/main.js</ScriptPath>
+        </CScriptDispatchInfo>
+    </DispatchInfoList>
+    <DesignModeSettings>
+        <OpenRuntimePathInBrowser>true</OpenRuntimePathInBrowser>
+    </DesignModeSettings>
+</Extension>
