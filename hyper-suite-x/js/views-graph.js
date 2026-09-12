@@ -7,7 +7,10 @@
   var P1 = { x: 0.25, y: 0.1 }, P2 = { x: 0.75, y: 0.9 };
   var selectedEase = "ease";
   var savedEases = loadSaved();
-  var drag = null;
+  var drag = null;          // null | 0 | 1  (0 = P1 handle — must NOT be tested with !drag)
+  var gBound = false;       // window-level drag listeners attached once
+  var curSvg = null;        // svg of the current render (rebuilt on each render)
+  var lastEvt = null, rafId = 0;
 
   function loadSaved() {
     try { return JSON.parse(localStorage.getItem("hsx_saved_eases") || "[]"); }
@@ -75,7 +78,8 @@
            easeTileSvg(e) + "<span>" + e.name + "</span></div>";
     });
     savedEases.forEach(function (e) {
-      h += '<div class="ease-tile" data-ease="saved:' + e.name + '">' + easeTileSvg({ type: "bez", bez: e.bez }) + "<span>" + e.name + "</span></div>";
+      var active = selectedEase === "saved:" + e.name ? " active" : "";
+      h += '<div class="ease-tile' + active + '" data-ease="saved:' + e.name + '">' + easeTileSvg({ type: "bez", bez: e.bez }) + "<span>" + e.name + "</span></div>";
     });
     grid.innerHTML = h;
   }
@@ -127,10 +131,16 @@
     document.getElementById("cv-h2l").setAttribute("x1", toX(1)); document.getElementById("cv-h2l").setAttribute("y1", toY(1));
     document.getElementById("cv-h2l").setAttribute("x2", toX(P2.x)); document.getElementById("cv-h2l").setAttribute("y2", toY(P2.y));
     var over = document.getElementById("ease-over");
-    if (over) over.checked = P1.y > 1 || P1.y < 0 || P2.y > 1 || P2.y < 0;
-    document.getElementById("cv-overshoot").style.display = over.checked ? "" : "none";
+    // auto-enable the gate when a handle leaves [0,1], but NEVER auto-disable:
+    // toggling overshoot ON while handles are in range must not be reverted
+    if (over && (P1.y > 1 || P1.y < 0 || P2.y > 1 || P2.y < 0)) over.checked = true;
+    var os = document.getElementById("cv-overshoot");
+    if (os) os.style.display = (over && over.checked) ? "" : "none";
     var fill = document.getElementById("ease-fill");
-    if (fill) fill.style.width = Math.round(D.bezY([P1.x, P1.y, P2.x, P2.y], 0.5) * 100) + "%";
+    if (fill) {
+      var mid = D.bezY([P1.x, P1.y, P2.x, P2.y], 0.5);
+      fill.style.width = Math.max(0, Math.min(160, Math.round(mid * 100))) + "%";
+    }
   }
 
   /* ---------- interaction ---------- */
@@ -143,34 +153,24 @@
     return { x: p.x, y: p.y };
   }
 
-  function bind() {
-    var box = document.getElementById("curve-box");
-    var svg = document.getElementById("curve-svg");
-    var over = document.getElementById("ease-over");
-
-    over.addEventListener("change", function () {
-      // when toggled on, nudge handles into overshoot territory
-      if (over.checked) { if (P1.y <= 1 && P2.y <= 1) { P1.y = 1.18; P2.y = 1.18; } }
-      else { P1.y = Math.min(1, Math.max(0, P1.y)); P2.y = Math.min(1, Math.max(0, P2.y)); }
-      draw();
-    });
-
-    ["cv-h1", "cv-h2"].forEach(function (id, idx) {
-      var el = document.getElementById(id);
-      el.addEventListener("mousedown", function (e) {
-        drag = idx; el.style.cursor = "grabbing"; e.preventDefault();
-      });
-    });
-    // rAF-throttled drag: at most one redraw per frame
-    var lastEvt = null, rafId = 0;
+  /* Window-level drag listeners — attached ONCE (the shell is re-rendered
+     on every visit to the Easing tab; attaching per render leaked listeners
+     and re-ran the rAF loop N times per frame). curSvg points at the svg of
+     the current render, so the single global handler always works. */
+  function bindGlobalDrag() {
+    if (gBound) return;
+    gBound = true;
+    // rAF-throttled drag: at most one redraw per frame.
+    // NB: `drag` is 0|1|null — compare with === null, NOT !drag,
+    // otherwise the first handle (drag===0) is treated as "not dragging".
     window.addEventListener("mousemove", function (e) {
-      if (!drag) return;
+      if (drag === null) return;
       lastEvt = e;
       if (rafId) return;
       rafId = requestAnimationFrame(function () {
         rafId = 0;
-        if (!drag || !lastEvt) return;
-        var p = svgPoint(svg, lastEvt);
+        if (drag === null || !lastEvt || !curSvg) return;
+        var p = svgPoint(curSvg, lastEvt);
         var t = Math.max(0, Math.min(1, fromX(p.x)));
         var v = fromY(p.y);
         var overEl = document.getElementById("ease-over");
@@ -182,24 +182,54 @@
       });
     });
     window.addEventListener("mouseup", function () {
-      if (!drag) return;
+      if (drag === null) return;
       drag = null; lastEvt = null;
       if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
       draw();
     });
+  }
+
+  function bind() {
+    var svg = document.getElementById("curve-svg");
+    curSvg = svg;
+    bindGlobalDrag();
+
+    var over = document.getElementById("ease-over");
+    over.addEventListener("change", function () {
+      // Overshoot ON = allow handles above 1 / below 0 (no forced move).
+      // OFF = clamp handles back into range.
+      if (!over.checked) {
+        P1.y = Math.min(1, Math.max(0, P1.y));
+        P2.y = Math.min(1, Math.max(0, P2.y));
+      }
+      draw();
+    });
+
+    ["cv-h1", "cv-h2"].forEach(function (id, idx) {
+      var el = document.getElementById(id);
+      el.addEventListener("mousedown", function (e) {
+        drag = idx; el.style.cursor = "grabbing"; e.preventDefault();
+      });
+      el.addEventListener("mouseup", function () { el.style.cursor = "grab"; });
+    });
 
     document.getElementById("ease-sel").addEventListener("change", function (e) {
+      selectedEase = e.target.value;
       loadEase(e.target.value);
+      renderGrid();
     });
     document.getElementById("ease-grid").addEventListener("click", function (e) {
       var tile = e.target.closest("[data-ease]");
       if (!tile) return;
       selectedEase = tile.getAttribute("data-ease");
       loadEase(selectedEase);
+      renderEaseSelect(); // keep the dropdown in sync
       renderGrid();
     });
     document.getElementById("ease-save").addEventListener("click", function () {
       var name = prompt("Name this ease curve:", "My Ease " + (savedEases.length + 1));
+      if (!name) return;
+      name = name.trim();
       if (!name) return;
       var exists = null;
       savedEases.forEach(function (s) { if (s.name === name) exists = s; });
@@ -216,17 +246,39 @@
     });
     document.getElementById("ease-minus").addEventListener("click", function () {
       if (!savedEases.length) { B.toast("No saved eases yet", "gold"); return; }
-      savedEases.pop(); persistSaved();
-      selectedEase = ""; renderEaseSelect(); renderGrid();
+      // delete the SELECTED saved ease (falls back to the last one)
+      var idx = -1;
+      if (selectedEase && selectedEase.indexOf("saved:") === 0) {
+        for (var i = 0; i < savedEases.length; i++) if ("saved:" + savedEases[i].name === selectedEase) { idx = i; break; }
+      }
+      if (idx < 0) idx = savedEases.length - 1;
+      var removed = savedEases.splice(idx, 1)[0];
+      persistSaved();
+      if (selectedEase === "saved:" + removed.name) {
+        selectedEase = "";
+        P1 = { x: 0.25, y: 0.1 }; P2 = { x: 0.75, y: 0.9 };
+        draw();
+      }
+      renderEaseSelect(); renderGrid();
+      B.toast("Deleted saved ease: " + removed.name, "ok");
     });
     document.getElementById("ease-read").addEventListener("click", function () {
       var btn = document.getElementById("ease-read");
       btn.classList.add("active");
-      var r = B.cmd("read_ease", {});
-      if (!r) return;
-      if (r.error) { B.toast(r.error, "err"); return; }
-      if (!r.keys || !r.keys.length) { B.toast("Select keyframes in After Effects first (or a layer with animated properties).", "gold"); return; }
+      var r = B.hsx("read_ease", {}, { silent: true });
+      if (!r || r.error) {
+        btn.classList.remove("active");
+        B.toast((r && r.error) || "Could not read keyframes", (r && r.error) ? "err" : "gold");
+        return;
+      }
+      if (!r.keys || r.keys.length < 2) {
+        btn.classList.remove("active");
+        B.toast("Select a layer with at least 2 keyframes on one property.", "gold");
+        return;
+      }
       fitFromKeys(r);
+      selectedEase = "";
+      renderEaseSelect();
       btn.classList.remove("active");
       B.toast("Read easing from " + r.keys.length + " keyframe(s)", "ok");
     });
@@ -234,7 +286,7 @@
       if (!B.canSpend("preset")) return;
       B.spend(B.costFor("preset"), "preset");
       var pts = D.sampleEase({ type: "bez", bez: [P1.x, P1.y, P2.x, P2.y] }, 14);
-      var r = B.cmd("apply_ease", { kf: pts, named: selectedEase });
+      var r = B.hsx("apply_ease", { kf: pts, named: selectedEase }, { silent: true });
       if (r && r.error) B.toast(r.error, "err");
       else B.toast("Ease applied to " + (r && r.keys != null ? r.keys : "selected") + " keyframe(s)", "ok");
     });

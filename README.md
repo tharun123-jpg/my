@@ -97,6 +97,12 @@ explore the whole UI and try the presets against a simulated comp. A
   toast path), JSX guards (`requireComp`/`requireSel`/`clampNum`), clean
   one-line error messages from ExtendScript, browser mock parity for every
   new command.
+- **Ease editor fixes** — the first bezier handle was undraggable (an
+  `!drag` check treated handle index 0 as "not dragging" and stuck the drag
+  state); window drag listeners no longer accumulate on every visit to the
+  tab; "−" now deletes the *selected* saved ease instead of the last one;
+  the overshoot toggle no longer destroys your curve or reverts itself;
+  dropdown/grid/read/save states stay in sync.
 
 ## What's inside
 
