@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ============================================================
+     Hyper Suite X - CEP panel manifest (fixed).
+
+     The manifest shipped in PR #1 (arena/01a0937d-my) used a
+     non-CEP schema: root element <Extension ModuleVersion="2.0">,
+     <ShellExtension>, <CScriptDispatchInfo>, Client="AEFT".
+     None of those are part of the CEP ExtensionManifest schema, so
+     After Effects' CEP loader never registered the bundle and
+     "Hyper Suite X" never appeared under Window > Extensions.
+
+     This is the correct schema: <ExtensionManifest> root, HostList
+     (AEFT), RequiredRuntime (CSXS), and per-extension DispatchInfo
+     with Resources/MainPath + UI/Menu. The <Menu> element is what
+     creates the Window > Extensions entry.
+     ============================================================ -->
+<ExtensionManifest Version="7.0"
+                   ExtensionBundleId="com.hyper.suite-x"
+                   ExtensionBundleVersion="2.1.0"
+                   ExtensionBundleName="Hyper Suite X">
+    <ExtensionList>
+        <Extension Id="com.hyper.suite-x" Version="2.1.0" />
+    </ExtensionList>
+    <ExecutionEnvironment>
+        <HostList>
+            <!-- AEFT = After Effects. 17.0 = AE 2020 ... 99.9 covers 2023 (23.x) through 2025+ -->
+            <Host Name="AEFT" Version="[17.0,99.9]" />
+        </HostList>
+        <LocaleList>
+            <Locale Code="All" />
+        </LocaleList>
+        <RequiredRuntimeList>
+            <RequiredRuntime Name="CSXS" Version="9.0" />
+        </RequiredRuntimeList>
+    </ExecutionEnvironment>
+    <DispatchInfoList>
+        <Extension Id="com.hyper.suite-x">
+            <DispatchInfo>
+                <Resources>
+                    <MainPath>./index.html</MainPath>
+                    <ScriptPath>./jsx/main.js</ScriptPath>
+                </Resources>
+                <Lifecycle>
+                    <AutoVisible>true</AutoVisible>
+                </Lifecycle>
+                <UI>
+                    <Type>Panel</Type>
+                    <Menu>Hyper Suite X</Menu>
+                    <Geometry>
+                        <Size>
+                            <Height>560</Height>
+                            <Width>420</Width>
+                        </Size>
+                        <MinSize>
+                            <Height>400</Height>
+                            <Width>320</Width>
+                        </MinSize>
+                    </Geometry>
+                </UI>
+            </DispatchInfo>
+        </Extension>
+    </DispatchInfoList>
+</ExtensionManifest>
