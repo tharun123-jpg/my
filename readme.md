@@ -23,9 +23,13 @@ Select a 'Keybind' and alias it to Valorant as a seconday fire key.
 This project won't be continued.  
 I've not tested the cheat since 'first commit' release date.  
 
-## COMPILATION   
-You need to download [GLFW pre-compiled binaries](https://www.glfw.org/download) and add the `/include` folder to the Include path.  
-Also include `/vs-XXXX` (XXXX = Visual Studio Version, ex: vs-2022 for VStudio 2022) to the lib folder. 
-  
+## COMPILATION  
+Full step-by-step instructions are in [BUILD.md](BUILD.md), including the
+troubleshooting table. Short version: download the
+[GLFW pre-compiled binaries](https://www.glfw.org/download) and extract them to
+`third_party/glfw`, then build `Void.sln` with Visual Studio 2022. The path is no
+longer hardcoded in the project file — override it with the `GlfwDir` /
+`GlfwLibDir` MSBuild properties if your GLFW lives somewhere else.
+
   
 Feel free to make pull/reqs or collaborate.   

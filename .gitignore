@@ -1,5 +1,57 @@
-.vs
-release/*
+# ---------------------------------------------------------------------------
+# Visual Studio / MSBuild
+# ---------------------------------------------------------------------------
+.vs/
+*.vcxproj.user
+*.suo
+*.user
+*.aps
+*.sdf
+*.opendb
+*.VC.db
+*.VC.opendb
+
+# ---------------------------------------------------------------------------
+# Build output. The vcxproj sends both OutDir and IntDir to $(SolutionDir)release
+# ---------------------------------------------------------------------------
+release/
+Debug/
+x64/
 *.obj
 *.exe
+*.dll
 *.pdb
+*.ilk
+*.exp
+*.lib
+*.iobj
+*.ipdb
+*.tlog
+*.log
+*.idb
+*.res
+*.lastbuildstate
+*.recipe
+
+# ---------------------------------------------------------------------------
+# Runtime-generated settings.
+# Settings::Save() writes config.ini into the process working directory and
+# Settings::Load() reads it back, so any committed copy is overwritten on first
+# run and produces noise in every diff. Not tracked; defaults live in
+# Settings::Load().
+# ---------------------------------------------------------------------------
+config.ini
+
+# ---------------------------------------------------------------------------
+# Third-party binaries. Place an extracted GLFW package here (see BUILD.md);
+# it is a build input, not source.
+# ---------------------------------------------------------------------------
+third_party/
+
+# ---------------------------------------------------------------------------
+# Editor / OS cruft
+# ---------------------------------------------------------------------------
+*.swp
+*~
+Thumbs.db
+desktop.ini
